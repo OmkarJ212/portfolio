@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en" class="scroll-smooth scroll-pt-14">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,7 +43,7 @@
   </script>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@1.73.0/dist/umd/lucide.min.js" integrity="sha384-DdDSdhkTpRzHOpRXj0iG8b2rBu5xPWN5SFqnCEZ0YKb/Yh1Ymmc9PVsYEZZOq40r" crossorigin="anonymous" defer></script>
 
   <style>
     /* Quiet, understated scrollbar */
@@ -133,7 +133,7 @@
             <i data-lucide="github" class="w-3.5 h-3.5 text-ink-muted"></i>
             <span>github.com/OmkarJ212</span>
           </a>
-          <button onclick="copyEmail()" id="copyEmailBtn" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-mono text-ink-secondary hover:text-ink-text bg-ink-card hover:bg-ink-raised border border-ink-border transition-colors duration-150">
+          <button type="button" onclick="copyEmail()" id="copyEmailBtn" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-mono text-ink-secondary hover:text-ink-text bg-ink-card hover:bg-ink-raised border border-ink-border transition-colors duration-150">
             <i data-lucide="mail" class="w-3.5 h-3.5 text-ink-muted"></i>
             <span id="copyEmailText">omki.yj@gmail.com</span>
           </button>
@@ -180,10 +180,10 @@
 
         <!-- Filter Tabs -->
         <div class="flex flex-wrap items-center gap-1 p-1 bg-ink-deep border border-ink-border rounded-lg text-xs font-mono">
-          <button onclick="filterProjects('all')" class="filter-btn px-3 py-1.5 rounded-md bg-ink-raised text-ink-text border border-ink-borderLight transition-colors duration-150" data-filter="all">All (6)</button>
-          <button onclick="filterProjects('extensions')" class="filter-btn px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-text border border-transparent transition-colors duration-150" data-filter="extensions">Extensions</button>
-          <button onclick="filterProjects('systems')" class="filter-btn px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-text border border-transparent transition-colors duration-150" data-filter="systems">Systems & Compilers</button>
-          <button onclick="filterProjects('web')" class="filter-btn px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-text border border-transparent transition-colors duration-150" data-filter="web">Web & PWA</button>
+          <button type="button" onclick="filterProjects('all')" class="filter-btn px-3 py-1.5 rounded-md bg-ink-raised text-ink-text border border-ink-borderLight transition-colors duration-150" data-filter="all" aria-pressed="true">All (6)</button>
+          <button type="button" onclick="filterProjects('extensions')" class="filter-btn px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-text border border-transparent transition-colors duration-150" data-filter="extensions" aria-pressed="false">Extensions</button>
+          <button type="button" onclick="filterProjects('systems')" class="filter-btn px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-text border border-transparent transition-colors duration-150" data-filter="systems" aria-pressed="false">Systems & Compilers</button>
+          <button type="button" onclick="filterProjects('web')" class="filter-btn px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-text border border-transparent transition-colors duration-150" data-filter="web" aria-pressed="false">Web & PWA</button>
         </div>
       </div>
 
@@ -729,8 +729,15 @@
 
   <!-- Filter & Utility Scripts -->
   <script>
-    // Initialize Lucide icons
-    lucide.createIcons();
+    const EMAIL = 'omki.yj@gmail.com';
+    let copyTimer = null;
+
+    // Initialize Lucide icons after deferred script executes
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    });
 
     // Filter projects
     function filterProjects(category) {
@@ -738,7 +745,9 @@
       const buttons = document.querySelectorAll('.filter-btn');
 
       buttons.forEach(btn => {
-        if (btn.getAttribute('data-filter') === category) {
+        const isActive = btn.getAttribute('data-filter') === category;
+        btn.setAttribute('aria-pressed', String(isActive));
+        if (isActive) {
           btn.classList.add('bg-ink-raised', 'text-ink-text', 'border-ink-borderLight');
           btn.classList.remove('text-ink-muted', 'border-transparent');
         } else {
@@ -756,17 +765,51 @@
       });
     }
 
-    // Copy Email to clipboard with clean feedback
-    function copyEmail() {
-      const email = 'omki.yj@gmail.com';
-      navigator.clipboard.writeText(email).then(() => {
-        const textSpan = document.getElementById('copyEmailText');
-        const origText = textSpan.innerText;
-        textSpan.innerText = 'Copied to clipboard';
-        setTimeout(() => {
-          textSpan.innerText = origText;
-        }, 2000);
-      });
+    function fallbackCopyText(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (!copied) {
+        throw new Error('execCommand copy failed');
+      }
+    }
+
+    function showCopyFeedback(message) {
+      const textSpan = document.getElementById('copyEmailText');
+      if (!textSpan) return;
+      if (copyTimer) {
+        clearTimeout(copyTimer);
+      }
+      textSpan.textContent = message;
+      copyTimer = setTimeout(() => {
+        textSpan.textContent = EMAIL;
+        copyTimer = null;
+      }, 2000);
+    }
+
+    // Copy Email to clipboard with clean feedback and fallback
+    async function copyEmail() {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(EMAIL);
+        } else {
+          fallbackCopyText(EMAIL);
+        }
+        showCopyFeedback('Copied to clipboard');
+      } catch (_err) {
+        try {
+          fallbackCopyText(EMAIL);
+          showCopyFeedback('Copied to clipboard');
+        } catch (_fallbackErr) {
+          showCopyFeedback('Copy failed');
+        }
+      }
     }
   </script>
 </body>
